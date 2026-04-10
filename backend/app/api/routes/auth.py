@@ -62,6 +62,7 @@ async def callback_google(request: Request, code: str | None = None, state: str 
         user = resolve_provider_user(db, profile)
 
     request.session["user_email"] = user.email
+    request.session["auth_provider"] = "google"
     request.session.pop("google_oauth_state", None)
     next_path = "/admin" if user.role == "admin" else "/album"
     redirect_query = urlencode(
@@ -69,6 +70,7 @@ async def callback_google(request: Request, code: str | None = None, state: str 
             "email": user.email,
             "next": next_path,
             "oauth": "success",
+            "provider": "google",
         }
     )
     return RedirectResponse(f"{settings.frontend_url}/auth/oauth-complete?{redirect_query}", status_code=302)

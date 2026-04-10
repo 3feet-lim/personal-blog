@@ -10,19 +10,6 @@ from app.services.storage import get_storage_adapter
 router = APIRouter(prefix="/api/assets", tags=["assets"])
 
 
-@router.get("/{asset_id}/access-url")
-def get_asset_access_url(asset_id: int, db: DbSession, user=Depends(current_user)):
-    asset = db.scalar(select(Asset).where(Asset.id == asset_id))
-    if asset is None:
-        raise HTTPException(status_code=404, detail="Asset not found.")
-
-    if asset.visibility == "private":
-        require_family_access(user)
-
-    adapter = get_storage_adapter()
-    return {"url": adapter.get_public_url(asset.object_key), "visibility": asset.visibility}
-
-
 @router.get("/{asset_id}/content")
 def get_asset_content(asset_id: int, db: DbSession, user=Depends(current_user)):
     asset = db.scalar(select(Asset).where(Asset.id == asset_id))

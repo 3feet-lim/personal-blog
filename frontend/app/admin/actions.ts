@@ -14,6 +14,11 @@ function getDemoEmail(formData: FormData) {
   return cookies().get("demo_user")?.value ?? "";
 }
 
+function getReturnTo(formData: FormData, fallback: string) {
+  const value = formData.get("returnTo");
+  return typeof value === "string" && value ? value : fallback;
+}
+
 async function send(path: string, init: RequestInit) {
   const response = await fetch(`${backendUrl}${path}`, {
     ...init,
@@ -34,6 +39,7 @@ async function send(path: string, init: RequestInit) {
 
 export async function createBlogPostAction(formData: FormData) {
   const demoEmail = getDemoEmail(formData);
+  const returnTo = getReturnTo(formData, "/admin/blog");
   const payload = {
     title: String(formData.get("title") ?? ""),
     summary: String(formData.get("summary") ?? ""),
@@ -49,11 +55,12 @@ export async function createBlogPostAction(formData: FormData) {
   });
 
   revalidatePath("/blog");
-  redirect("/admin?created=post");
+  redirect(`${returnTo}?created=post`);
 }
 
 export async function createAlbumAction(formData: FormData) {
   const demoEmail = getDemoEmail(formData);
+  const returnTo = getReturnTo(formData, "/admin/albums");
   const payload = {
     title: String(formData.get("title") ?? ""),
     description: String(formData.get("description") ?? ""),
@@ -67,11 +74,12 @@ export async function createAlbumAction(formData: FormData) {
   });
 
   revalidatePath("/album");
-  redirect("/admin?created=album");
+  redirect(`${returnTo}?created=album`);
 }
 
 export async function updateUserAccessAction(formData: FormData) {
   const demoEmail = getDemoEmail(formData);
+  const returnTo = getReturnTo(formData, "/admin/users");
   const userId = String(formData.get("userId") ?? "");
   const payload = {
     role: String(formData.get("role") ?? "member"),
@@ -86,11 +94,12 @@ export async function updateUserAccessAction(formData: FormData) {
   });
 
   revalidatePath("/admin");
-  redirect("/admin?updated=user");
+  redirect(`${returnTo}?updated=user`);
 }
 
 export async function uploadAlbumImageAction(formData: FormData) {
   const demoEmail = getDemoEmail(formData);
+  const returnTo = getReturnTo(formData, "/admin/albums");
   const albumId = String(formData.get("albumId") ?? "");
   const caption = String(formData.get("caption") ?? "");
   const file = formData.get("file");
@@ -119,5 +128,5 @@ export async function uploadAlbumImageAction(formData: FormData) {
 
   revalidatePath("/admin");
   revalidatePath("/album");
-  redirect("/admin?uploaded=image");
+  redirect(`${returnTo}?uploaded=image`);
 }

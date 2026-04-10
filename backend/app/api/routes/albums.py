@@ -42,7 +42,7 @@ def get_album(slug: str, db: DbSession, user=Depends(current_user)):
                 "id": item.id,
                 "caption": item.caption,
                 "asset_id": item.asset_id,
-                "asset_url": f"/api/assets/{item.asset_id}/access-url" if item.asset_id else None,
+                "asset_url": f"/api/assets/{item.asset_id}/content" if item.asset_id else None,
             }
             for item in sorted(album.items, key=lambda candidate: candidate.sort_order)
         ],

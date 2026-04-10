@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { MarkdownContent } from "../../../components/markdown-content";
 import { getBlogPost } from "../../../lib/api";
 
 export const dynamic = "force-dynamic";
@@ -12,10 +13,10 @@ export default async function BlogDetailPage({ params }: { params: { slug: strin
 
   return (
     <article className="panel detail-card">
-      <div className="eyebrow">Markdown Source</div>
+      <div className="eyebrow">Markdown Rendered</div>
       <h1>{post.title}</h1>
       <p>{post.summary}</p>
-      <pre>{post.content}</pre>
+      <MarkdownContent source={post.content} />
     </article>
   );
 }

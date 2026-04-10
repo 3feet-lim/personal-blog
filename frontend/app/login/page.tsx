@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getAuthProviders } from "../../lib/api";
 import { loadSessionForDemo } from "../../lib/auth";
-import { backendUrl } from "../../lib/config";
+import { browserBackendUrl } from "../../lib/config";
 
 export const dynamic = "force-dynamic";
 
@@ -18,11 +18,12 @@ export default async function LoginPage({
   return (
     <div className="grid">
       <section className="panel section-card">
-        <div className="eyebrow">Google OAuth</div>
+        <div className="eyebrow">Real Login</div>
         <h1 className="section-title">로그인 정책</h1>
         <p>
-          백엔드는 Google OAuth 시작/콜백 엔드포인트를 갖고 있고, 환경 변수가 채워지면 실제
-          연동으로 전환할 수 있습니다. 현재 로컬에서는 데모 세션과 함께 병행 사용합니다.
+          Google OAuth가 설정된 환경에서는 이 경로가 실제 로그인 진입점입니다. 승인된 사용자는
+          로그인 후 역할에 맞는 보호 영역으로 이동하고, 승인되지 않은 사용자는 백엔드에서
+          차단됩니다.
         </p>
         <div className="kv">
           <strong>Status</strong>
@@ -33,7 +34,7 @@ export default async function LoginPage({
         <div className="cta-row">
           <a
             className={`button ${google?.configured ? "primary" : "secondary"}`}
-            href={google?.configured ? `${backendUrl}${google.login_url}` : "#"}
+            href={google?.configured ? `${browserBackendUrl}${google.login_url}` : "#"}
           >
             Google 로그인 시작
           </a>
@@ -41,11 +42,11 @@ export default async function LoginPage({
       </section>
 
       <section className="panel section-card">
-        <div className="eyebrow">Demo Session</div>
+        <div className="eyebrow">Local Demo Only</div>
         <h2 className="section-title">개발용 빠른 진입</h2>
         <p>
-          이제 데모 모드는 프런트 세션 쿠키 기반으로 유지됩니다. 한 번 선택하면 쿼리스트링 없이
-          보호 영역과 admin 화면을 바로 검증할 수 있습니다.
+          아래 데모 세션은 로컬 개발 검증용입니다. 실제 사용자 로그인 대체가 아니라, 권한 경계를
+          빠르게 확인하기 위한 개발 보조 수단입니다.
         </p>
         <div className="kv">
           <strong>Current</strong>

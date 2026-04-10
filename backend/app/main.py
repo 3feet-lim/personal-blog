@@ -16,8 +16,23 @@ from app.db.session import Base, SessionLocal, engine
 from app.models import Album, AlbumItem, Asset, AuthIdentity, BlogPost, User
 from app.services.storage import get_storage_adapter
 
+SEED_ASSET_KEY = "album/private/family-trip-1.jpg"
+SEED_ASSET_MIME = "image/png"
+SEED_ASSET_BYTES = bytes.fromhex(
+    "89504e470d0a1a0a0000000d4948445200000001000000010804000000b51c0c02"
+    "0000000b49444154789c63fcff1f0003030200efb267990000000049454e44ae426082"
+)
+
+
+def ensure_seed_asset_object() -> None:
+    adapter = get_storage_adapter()
+    adapter.ensure_bucket()
+    adapter.upload_bytes(SEED_ASSET_KEY, SEED_ASSET_BYTES, SEED_ASSET_MIME)
+
 
 def seed_data() -> None:
+    ensure_seed_asset_object()
+
     with SessionLocal() as db:
         admin = db.scalar(select(User).where(User.email == "admin@example.com"))
         if admin is None:
@@ -77,9 +92,9 @@ def seed_data() -> None:
             asset = Asset(
                 storage_provider="minio",
                 bucket=get_settings().storage_bucket,
-                object_key="album/private/family-trip-1.jpg",
-                mime_type="image/jpeg",
-                size_bytes=0,
+                object_key=SEED_ASSET_KEY,
+                mime_type=SEED_ASSET_MIME,
+                size_bytes=len(SEED_ASSET_BYTES),
                 visibility="private",
             )
             db.add(asset)
@@ -105,13 +120,38 @@ def seed_data() -> None:
             )
 
             db.commit()
+            return
+
+        seeded_asset = db.scalar(select(Asset).where(Asset.object_key == SEED_ASSET_KEY))
+        if seeded_asset is not None:
+            seeded_asset.mime_type = SEED_ASSET_MIME
+            seeded_asset.size_bytes = len(SEED_ASSET_BYTES)
+            db.add(seeded_asset)
+        existing_google_user = db.scalar(select(User).where(User.email == "3feet.lim@gmail.com"))
+        if existing_google_user is None:
+            db.add(
+                User(
+                    email="3feet.lim@gmail.com",
+                    display_name="Seokmin Lim",
+                    role="member",
+                    approved=True,
+                    family_access=True,
+                )
+            )
+        else:
+            existing_google_user.display_name = "Seokmin Lim"
+            existing_google_user.role = "member"
+            existing_google_user.approved = True
+            existing_google_user.family_access = True
+            db.add(existing_google_user)
+        db.commit()
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     Base.metadata.create_all(bind=engine)
     try:
-        get_storage_adapter().ensure_bucket()
+        ensure_seed_asset_object()
     except Exception:
         # MinIO might not be reachable during early bootstrap; API remains usable without uploads.
         pass

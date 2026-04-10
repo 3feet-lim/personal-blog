@@ -1,10 +1,10 @@
-import { AdminOverview } from "../../components/admin-overview";
-import { getAlbums, getBlogPosts } from "../../lib/api";
-import { isAdmin, loadSessionForDemo } from "../../lib/auth";
+import { AdminBlogManager } from "../../../components/admin-blog-manager";
+import { getBlogPosts } from "../../../lib/api";
+import { isAdmin, loadSessionForDemo } from "../../../lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminPage({
+export default async function AdminBlogPage({
   searchParams
 }: {
   searchParams?: Record<string, string | string[] | undefined>;
@@ -23,14 +23,17 @@ export default async function AdminPage({
     );
   }
 
-  const [postsData, albumsData] = await Promise.all([getBlogPosts(), getAlbums(demoEmail)]);
+  const notice =
+    typeof searchParams?.created === "string"
+      ? `${searchParams.created} created`
+      : undefined;
+  const postsData = await getBlogPosts();
 
   return (
-    <AdminOverview
+    <AdminBlogManager
       demoEmail={demoEmail ?? "admin@example.com"}
-      user={user}
       posts={postsData?.items ?? []}
-      albums={albumsData?.items ?? []}
+      notice={notice}
     />
   );
 }
