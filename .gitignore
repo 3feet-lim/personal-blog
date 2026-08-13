@@ -13,3 +13,6 @@ __pycache__
 .env.*
 !.env.example
 backend/data
+frontend/playwright-report
+frontend/test-results
+*.tsbuildinfo
