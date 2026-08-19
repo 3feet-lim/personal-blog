@@ -39,7 +39,10 @@ PROVIDERS = {"google": GoogleProvider()}
 
 
 def get_current_user(db: Session, request: Request, x_demo_user: str | None = None) -> User | None:
-    email = x_demo_user or request.session.get("user_email")
+    settings = get_settings()
+    email = request.session.get("user_email")
+    if not email and settings.enable_demo_auth and x_demo_user:
+        email = x_demo_user
     if not email:
         return None
 

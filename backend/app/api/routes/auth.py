@@ -1,5 +1,4 @@
 import secrets
-from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
@@ -64,20 +63,16 @@ async def callback_google(request: Request, code: str | None = None, state: str 
     request.session["user_email"] = user.email
     request.session["auth_provider"] = "google"
     request.session.pop("google_oauth_state", None)
-    next_path = "/admin" if user.role == "admin" else "/album"
-    redirect_query = urlencode(
-        {
-            "email": user.email,
-            "next": next_path,
-            "oauth": "success",
-            "provider": "google",
-        }
-    )
-    return RedirectResponse(f"{settings.frontend_url}/auth/oauth-complete?{redirect_query}", status_code=302)
+    next_path = "/admin" if user.role == "admin" else "/family"
+    return RedirectResponse(f"{settings.frontend_url}{next_path}", status_code=302)
 
 
 @router.post("/auth/dev-login")
 def dev_login(payload: DevLoginIn, request: Request):
+    settings = get_settings()
+    if not settings.enable_demo_auth:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found.")
+
     with SessionLocal() as db:
         user = db.scalar(select(User).where(User.email == payload.email))
         if user is None:

@@ -1,39 +1,52 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+
 import { AdminBlogManager } from "../../../components/admin-blog-manager";
-import { getBlogPosts } from "../../../lib/api";
-import { isAdmin, loadSessionForDemo } from "../../../lib/auth";
+import { getBlogPosts, type BlogPost } from "../../../lib/api";
+import { isAdmin, useSession } from "../../../lib/auth";
 
-export const dynamic = "force-dynamic";
+export default function AdminBlogPage() {
+  const { user, demoEmail, loading: sessionLoading } = useSession();
+  const admin = isAdmin(user.role);
+  const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export default async function AdminBlogPage({
-  searchParams
-}: {
-  searchParams?: Record<string, string | string[] | undefined>;
-}) {
-  const { user, demoEmail } = await loadSessionForDemo(searchParams);
+  const load = useCallback(() => {
+    setLoading(true);
+    getBlogPosts()
+      .then((data) => setPosts(data.items))
+      .catch(() => setPosts([]))
+      .finally(() => setLoading(false));
+  }, []);
 
-  if (!isAdmin(user.role)) {
+  useEffect(() => {
+    if (sessionLoading || !admin) {
+      setLoading(false);
+      return;
+    }
+    load();
+  }, [sessionLoading, admin, load]);
+
+  if (sessionLoading) {
+    return <p className="empty-state">불러오는 중...</p>;
+  }
+
+  if (!admin) {
     return (
       <section className="panel section-card guard">
         <div className="eyebrow">Admin Only</div>
         <h1 className="section-title">관리자 권한이 필요합니다.</h1>
         <p>
-          현재 세션: <code>{demoEmail ?? "anonymous"}</code>
+          현재 세션: <code>{user.email}</code>
         </p>
       </section>
     );
   }
 
-  const notice =
-    typeof searchParams?.created === "string"
-      ? `${searchParams.created} created`
-      : undefined;
-  const postsData = await getBlogPosts();
+  if (loading) {
+    return <p className="empty-state">불러오는 중...</p>;
+  }
 
-  return (
-    <AdminBlogManager
-      demoEmail={demoEmail ?? "admin@example.com"}
-      posts={postsData?.items ?? []}
-      notice={notice}
-    />
-  );
+  return <AdminBlogManager demoEmail={demoEmail ?? "admin@example.com"} posts={posts} onCreated={load} />;
 }

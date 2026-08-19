@@ -1,74 +1,164 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
+import { getBlogPosts, getSeriesList, getTagsList, type BlogPost, type Series, type Tag } from "../lib/api";
+
+const PAGE_SIZE = 6;
+
+function formatDate(value: string | null) {
+  if (!value) {
+    return "";
+  }
+  const date = new Date(value);
+  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(2, "0")}`;
+}
+
 export default function HomePage() {
+  const [items, setItems] = useState<BlogPost[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [series, setSeries] = useState<Series[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+
+  useEffect(() => {
+    getBlogPosts(PAGE_SIZE, 0)
+      .then((data) => {
+        setItems(data.items);
+        setTotal(data.total);
+      })
+      .catch(() => {
+        setItems([]);
+        setTotal(0);
+      })
+      .finally(() => setLoading(false));
+
+    getSeriesList()
+      .then((data) => setSeries(data.items))
+      .catch(() => setSeries([]));
+
+    getTagsList()
+      .then((data) => setTags(data.items))
+      .catch(() => setTags([]));
+  }, []);
+
+  async function loadMore() {
+    setLoadingMore(true);
+    try {
+      const data = await getBlogPosts(PAGE_SIZE, items.length);
+      setItems((prev) => [...prev, ...data.items]);
+      setTotal(data.total);
+    } catch {
+      // keep current items on failure
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  const [latest, ...rest] = items;
+  const hasMore = items.length < total;
+
   return (
-    <>
-      <section className="hero">
-        <div className="panel hero-copy">
-          <div className="eyebrow">Public + Private</div>
-          <h1>기술 기록과 가족 앨범을 한 홈에서 분리합니다.</h1>
-          <p>
-            공개 기술 블로그는 누구나 읽을 수 있고, 가족 앨범은 승인된 사용자만 접근합니다.
-            MVP는 이 경계를 가장 중요한 제품 규칙으로 둡니다.
-          </p>
-          <div className="cta-row">
-            <Link className="button primary" href="/blog">
-              Tech Blog 보기
-            </Link>
-            <Link className="button secondary" href="/album">
-              Family Album 입장
-            </Link>
-          </div>
-        </div>
-        <div className="panel hero-card">
-          <div className="eyebrow">MVP Principles</div>
-          <div className="stack">
-            <div>
-              <span className="badge">Public</span>
-              <h3>Tech Blog</h3>
-              <p>Markdown 기반 포스트, 공개 읽기, 관리자 작성.</p>
-            </div>
-            <div>
-              <span className="badge">Protected</span>
-              <h3>Family Album</h3>
-              <p>Google SSO 확장 전제를 가진 승인 사용자 전용 이미지 앨범.</p>
-            </div>
-          </div>
-        </div>
+    <div className="layout-grid">
+      <section>
+        {loading ? (
+          <p className="empty-state">불러오는 중...</p>
+        ) : items.length === 0 ? (
+          <p className="empty-state">표시할 게시물이 없습니다.</p>
+        ) : (
+          <>
+            <article>
+              <div className="eyebrow">Latest / {formatDate(latest.published_at)}</div>
+              <Link href={`/blog/post?slug=${encodeURIComponent(latest.slug)}`}>
+                <h1 style={{ fontSize: "2.2rem", fontWeight: 400, margin: "0 0 16px", lineHeight: 1.15 }}>
+                  {latest.title}
+                </h1>
+              </Link>
+              <p>{latest.summary}</p>
+              <div className="tag-row">
+                {latest.tags.map((tag) => (
+                  <span key={tag} className="tag">
+                    {tag}
+                  </span>
+                ))}
+                <span className="read-time">{latest.read_time} min read</span>
+              </div>
+            </article>
+
+            {rest.length > 0 ? (
+              <div className="list" style={{ marginTop: 40 }}>
+                {rest.map((post) => (
+                  <Link
+                    key={post.slug}
+                    className="post-list-item"
+                    href={`/blog/post?slug=${encodeURIComponent(post.slug)}`}
+                  >
+                    <span className="post-date">{formatDate(post.published_at)}</span>
+                    <h3>{post.title}</h3>
+                    <p>{post.summary}</p>
+                    <div className="tag-row">
+                      {post.tags.map((tag) => (
+                        <span key={tag} className="tag">
+                          {tag}
+                        </span>
+                      ))}
+                      <span className="read-time">{post.read_time} min read</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+
+            {hasMore ? (
+              <div className="more" style={{ marginTop: 24 }}>
+                <button type="button" className="button secondary" onClick={loadMore} disabled={loadingMore}>
+                  {loadingMore ? "불러오는 중..." : "Older posts →"}
+                </button>
+              </div>
+            ) : null}
+          </>
+        )}
       </section>
 
-      <section className="grid">
-        <article className="panel section-card">
-          <div className="eyebrow">01</div>
-          <h2 className="section-title">Tech Blog</h2>
-          <p>
-            프로젝트 노트, 아키텍처 정리, 구현 메모를 공개 영역에 유지합니다. 인증 없이 바로
-            접근할 수 있습니다.
-          </p>
-          <div className="cta-row">
-            <Link className="button primary" href="/blog">
-              블로그로 이동
-            </Link>
+      <aside>
+        <div className="sidebar-block">
+          <h4>Series</h4>
+          <div className="list">
+            {series.map((item) => (
+              <div key={item.slug} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0" }}>
+                <span>{item.title}</span>
+                <b>{item.post_count}</b>
+              </div>
+            ))}
+            {series.length === 0 ? <p className="empty-state">시리즈가 없습니다.</p> : null}
           </div>
-        </article>
+        </div>
 
-        <article className="panel section-card guard">
-          <div className="eyebrow">02</div>
-          <h2 className="section-title">Family Album</h2>
-          <p>
-            가족 앨범은 승인 사용자 전용입니다. 로그인 성공만으로는 부족하고, 내부 allowlist
-            승인과 family 접근 권한이 필요합니다.
-          </p>
-          <div className="cta-row">
-            <Link className="button warn" href="/login">
-              로그인
-            </Link>
-            <Link className="button secondary" href="/album">
-              접근 상태 확인
-            </Link>
+        <div className="sidebar-block">
+          <h4>Tags</h4>
+          <div className="tag-row">
+            {tags.map((item) => (
+              <span key={item.tag} className="tag">
+                {item.tag}
+              </span>
+            ))}
+            {tags.length === 0 ? <p className="empty-state">태그가 없습니다.</p> : null}
           </div>
-        </article>
-      </section>
-    </>
+        </div>
+
+        <div className="subscribe-box">
+          <h3>글이 올라오면 메일로</h3>
+          <p>한 달에 한두 통. 광고 없음.</p>
+          <form onSubmit={(event) => event.preventDefault()}>
+            <input type="email" placeholder="you@mail.com" aria-label="email" />
+            <button type="submit" className="button primary">
+              구독
+            </button>
+          </form>
+        </div>
+      </aside>
+    </div>
   );
 }

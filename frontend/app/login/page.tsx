@@ -1,23 +1,58 @@
-import Link from "next/link";
-import { getAuthProviders } from "../../lib/api";
-import { loadSessionForDemo } from "../../lib/auth";
-import { browserBackendUrl } from "../../lib/config";
+"use client";
 
-export const dynamic = "force-dynamic";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
-export default async function LoginPage({
-  searchParams
-}: {
-  searchParams?: Record<string, string | string[] | undefined>;
-}) {
-  const providerData = await getAuthProviders();
-  const google = providerData?.providers.find((provider) => provider.name === "google");
-  const { demoEmail } = await loadSessionForDemo(searchParams);
-  const oauthState = typeof searchParams?.oauth === "string" ? searchParams.oauth : undefined;
+import { apiUrl } from "../../lib/config";
+import { devLogin, getAuthProviders, type AuthProvider } from "../../lib/api";
+import { clearStoredDemoEmail, getStoredDemoEmail, setStoredDemoEmail, useSession } from "../../lib/auth";
+
+const DEMO_USERS = [
+  { email: "family@example.com", label: "가족 사용자 세션 시작", next: "/family", variant: "primary" as const },
+  { email: "admin@example.com", label: "관리자 세션 시작", next: "/admin", variant: "secondary" as const },
+  { email: "guest@example.com", label: "승인 안 된 사용자 세션 시작", next: "/family", variant: "warn" as const }
+];
+
+export default function LoginPage() {
+  const router = useRouter();
+  const { demoEmail, reload } = useSession();
+  const [providers, setProviders] = useState<AuthProvider[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<string | null>(null);
+
+  useEffect(() => {
+    getAuthProviders()
+      .then((data) => setProviders(data.providers))
+      .catch(() => setProviders([]));
+  }, []);
+
+  const google = providers.find((provider) => provider.name === "google");
+
+  async function startDemoSession(email: string, nextPath: string) {
+    setPending(email);
+    setError(null);
+    try {
+      await devLogin(email);
+      setStoredDemoEmail(email);
+      await reload();
+      router.push(nextPath);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "로그인에 실패했습니다.");
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function endDemoSession() {
+    clearStoredDemoEmail();
+    await reload();
+  }
+
+  const currentDemoEmail = demoEmail ?? getStoredDemoEmail();
 
   return (
     <div className="grid">
-      <section className="panel section-card">
+      <section className="form-block">
         <div className="eyebrow">Real Login</div>
         <h1 className="section-title">로그인 정책</h1>
         <p>
@@ -30,18 +65,17 @@ export default async function LoginPage({
           <code>{google?.status ?? "unknown"}</code>
           <code>{google?.configured ? "configured" : "missing env"}</code>
         </div>
-        {oauthState ? <p className="inline-notice">OAuth 상태: {oauthState}</p> : null}
         <div className="cta-row">
           <a
             className={`button ${google?.configured ? "primary" : "secondary"}`}
-            href={google?.configured ? `${browserBackendUrl}${google.login_url}` : "#"}
+            href={google?.configured ? `${apiUrl}${google.login_url}` : "#"}
           >
             Google 로그인 시작
           </a>
         </div>
       </section>
 
-      <section className="panel section-card">
+      <section className="form-block">
         <div className="eyebrow">Local Demo Only</div>
         <h2 className="section-title">개발용 빠른 진입</h2>
         <p>
@@ -50,40 +84,32 @@ export default async function LoginPage({
         </p>
         <div className="kv">
           <strong>Current</strong>
-          <code>{demoEmail ?? "anonymous"}</code>
+          <code>{currentDemoEmail ?? "anonymous"}</code>
           <strong>Demo Users</strong>
           <code>family@example.com</code>
           <code>admin@example.com</code>
           <code>guest@example.com</code>
         </div>
+        {error ? <p className="inline-notice error">{error}</p> : null}
         <div className="stack">
-          <form action="/auth/demo-login" method="post" className="cta-row">
-            <input type="hidden" name="email" value="family@example.com" />
-            <input type="hidden" name="nextPath" value="/album" />
-            <button className="button primary" type="submit">
-              가족 사용자 세션 시작
-            </button>
-          </form>
-          <form action="/auth/demo-login" method="post" className="cta-row">
-            <input type="hidden" name="email" value="admin@example.com" />
-            <input type="hidden" name="nextPath" value="/admin" />
-            <button className="button secondary" type="submit">
-              관리자 세션 시작
-            </button>
-          </form>
-          <form action="/auth/demo-login" method="post" className="cta-row">
-            <input type="hidden" name="email" value="guest@example.com" />
-            <input type="hidden" name="nextPath" value="/album" />
-            <button className="button warn" type="submit">
-              승인 안 된 사용자 세션 시작
-            </button>
-          </form>
-          {demoEmail ? (
-            <form action="/auth/demo-logout" method="post" className="cta-row">
-              <button className="button secondary" type="submit">
+          {DEMO_USERS.map((demoUser) => (
+            <div className="cta-row" key={demoUser.email}>
+              <button
+                className={`button ${demoUser.variant}`}
+                type="button"
+                disabled={pending === demoUser.email}
+                onClick={() => startDemoSession(demoUser.email, demoUser.next)}
+              >
+                {demoUser.label}
+              </button>
+            </div>
+          ))}
+          {currentDemoEmail ? (
+            <div className="cta-row">
+              <button className="button secondary" type="button" onClick={endDemoSession}>
                 데모 세션 종료
               </button>
-            </form>
+            </div>
           ) : null}
         </div>
       </section>

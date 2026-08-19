@@ -1,88 +1,93 @@
-# Personal Blog - Local Runtime
+# Personal Blog
+
+## 스택
+
+- 프런트: Next.js (`output: "export"`, 정적 SSG만, SSR 없음)
+- 백엔드: FastAPI (포트 8000)
+- DB: PostgreSQL 16 (SQLite 사용하지 않음)
+- 파일 저장: 로컬 MinIO / 운영 AWS S3 (S3 호환 어댑터)
+- 로컬 실행: Docker Compose (`web`, `api`, `db`, `minio`)
 
 ## 구조
 
-루트 기준으로 컨테이너 런타임을 분리했습니다.
-
-- `./frontend` 는 Next.js 앱을 담는 독립 컨테이너입니다.
-- `./backend` 는 Python API를 담는 독립 컨테이너입니다.
-- `./docker-compose.yml` 은 `frontend`, `backend`, `minio`, `postgres(optional)` 를 함께 실행합니다.
-- 기본 데이터베이스는 SQLite입니다.
+- `./frontend`: Next.js 정적 export 프런트. 모든 동적 데이터는 브라우저에서 API를 직접 호출합니다.
+- `./backend`: FastAPI 백엔드. stateless, DB 마이그레이션은 Alembic으로만 수행합니다.
+- `./docker-compose.yml`: `web` → `api` → `db`, `api` → `minio` 의존성으로 4개 서비스를 실행합니다.
 
 ## 실행 전 준비
-
-1. 환경 변수 파일을 복사합니다.
 
 ```bash
 cp .env.example .env
 ```
 
-2. `.env` 의 OAuth/비밀키 값은 필요 시 채웁니다.
+`.env`에서 다음 값을 확인/수정합니다.
 
-## 인증 방식
+- `NEXT_PUBLIC_API_URL`: 브라우저가 호출할 API 주소 (로컬 기본값 `http://localhost:8000`)
+- `DATABASE_URL`: PostgreSQL 16 DSN
+- `CORS_ORIGINS`: 콤마로 구분된 허용 origin 목록 (로컬 기본값 `http://localhost:3000`)
+- `S3_ENDPOINT_URL`, `S3_BUCKET`, `S3_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+- OAuth를 사용하려면 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `SESSION_SECRET`
 
-현재 런타임은 두 가지 모드를 지원합니다.
-
-- 데모 모드
-  - 백엔드가 `X-Demo-User` 헤더 기반 데모 인증을 지원합니다.
-  - 빠른 확인용으로는 브라우저에서 제공되는 데모 이메일 테스트 링크를 사용합니다.
-- 실 OAuth 모드
-  - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `SESSION_SECRET` 를 설정하고 Google OAuth 흐름을 사용합니다.
-  - `FRONTEND_URL` 은 OAuth 완료 후 돌아갈 프런트 주소입니다.
-  - 세션 쿠키 동작을 조정하려면 `SESSION_COOKIE_NAME`, `SESSION_HTTPS_ONLY` 도 함께 봅니다.
-
-예시:
+## 로컬 실행
 
 ```bash
-GOOGLE_REDIRECT_URI=http://localhost:8000/api/auth/callback/google
-SESSION_SECRET=change-this-session-secret
-FRONTEND_URL=http://localhost:3000
-```
-
-## SQLite 기본 실행(권장)
-
-```bash
-docker compose up --build
+docker compose up -d --build
 ```
 
 접속 포트
 
-- Frontend: `http://localhost:3000`
+- Frontend (`npm run dev`): `http://localhost:3000`
 - Backend: `http://localhost:8000`
+- PostgreSQL: `localhost:5432`
 - MinIO API: `http://localhost:9000`
 - MinIO Console: `http://localhost:9001`
 
-## PostgreSQL 호환성 테스트(옵션)
+## DB 마이그레이션 (Alembic)
 
-PostgreSQL 컨테이너는 기본 실행에서 제외되며, 필요 시 profile로 별도 기동합니다.
-
-1. `.env` 에서 `DATABASE_URL` 을 PostgreSQL DSN으로 변경
+앱 컨테이너는 스키마를 자동 생성하지 않습니다. 최초 기동 후 마이그레이션을 직접 적용합니다.
 
 ```bash
-DATABASE_URL=postgresql://personal_blog:personal_blog@postgres:5432/personal_blog
+docker compose exec api python -m alembic upgrade head
 ```
 
-2. Postgres 프로필로 실행
+새 revision을 추가할 때는:
 
 ```bash
-docker compose --profile postgres up --build
+docker compose exec api python -m alembic revision --autogenerate -m "설명"
+docker compose exec api python -m alembic upgrade head
 ```
 
-> PostgreSQL을 함께 띄우면 `backend` 는 `depends_on` 대신 환경변수 기반 `DATABASE_URL` 로 분기합니다.
+## 샘플 데이터 (선택)
 
-## MinIO 버킷 정책
+로컬 개발용 샘플 사용자/게시물/앨범이 필요하면 명시적으로 실행합니다. API 시작 시 자동으로 실행되지 않습니다.
 
-현재 MVP는 bucket 자동 생성 코드를 컨테이너 런타임에 강제하지 않고, 다음 계약으로 운영합니다.
+```bash
+docker compose exec api python -m app.scripts.seed
+```
 
-- 버킷명: `STORAGE_BUCKET`
-- 기본 예시: `personal-blog`
-- 버킷은 backend 시작 시점 또는 최초 업로드 시점에서 생성되도록 백엔드 초기화 로직에서 처리 권장
-- 운영 초기에 수동 생성이 필요한 경우 MinIO Console에서 버킷을 먼저 생성하면 됩니다.
+## 파일/이미지 저장
 
-## 정리
+- 이미지 등 바이너리는 오브젝트 스토리지에 저장하고, DB에는 `object_key`만 저장합니다.
+- 로컬은 MinIO(S3 호환)를 사용하며, `S3_ENDPOINT_URL`이 설정되어 있으면 최초 업로드 시 버킷을 자동 생성합니다.
+- 운영은 `S3_ENDPOINT_URL`을 비워 실제 AWS S3를 사용합니다. 이 경우 버킷은 자동 생성하지 않으며, 사전에 프로비저닝되어 있어야 합니다.
+- 운영 자격 증명은 정적 액세스 키 대신 ECS Task Role(IAM)을 사용합니다. `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`를 비워두면 boto3 기본 자격 증명 체인이 적용됩니다.
 
-- `frontend`와 `backend`는 반드시 각자의 `Dockerfile`로 빌드됩니다.
-- 로컬 기본값은 SQLite-first 입니다.
-- PostgreSQL은 `--profile postgres`로 선택 실행해 호환성 점검을 할 수 있습니다.
-- 데모 모드에서 앱 점검 시에는 브라우저 URL 파라미터 기반 로그인 흐름을 사용해도 됩니다.
-- 실 OAuth 모드에서는 위의 OAuth 환경 변수를 모두 채우고, 운영 OAuth 설정에 맞게 `GOOGLE_REDIRECT_URI`를 맞춰주세요.
+## 인증
+
+- 실제 로그인은 Google OAuth를 사용합니다. `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `SESSION_SECRET`을 설정하면 동작합니다.
+- 로컬 데모 로그인(`X-Demo-User` 헤더, `/api/auth/dev-login`)은 `ENABLE_DEMO_AUTH=true`일 때만 동작합니다. 로컬 `.env`는 기본적으로 `true`이며, Compose의 기본값은 `false`입니다. **운영 환경에서는 절대 `true`로 설정하지 마세요.**
+
+## 정적 프런트 빌드/배포
+
+```bash
+cd frontend
+npm run build
+```
+
+`out/` 디렉토리에 정적 파일만 생성됩니다(서버 런타임 없음). 운영 배포는 `out/`을 S3 등 정적 호스팅에 업로드합니다.
+
+## 헬스체크
+
+```bash
+curl http://localhost:8000/health
+```

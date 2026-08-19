@@ -1,7 +1,10 @@
-export const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "personal-blog";
-export const browserBackendUrl =
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
-export const backendUrl =
-  process.env.BACKEND_URL ??
-  process.env.NEXT_PUBLIC_BACKEND_URL ??
-  "http://backend:8000";
+export const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Jaeyoung's Notes";
+
+export const siteSubtitle = process.env.NEXT_PUBLIC_SITE_SUBTITLE ?? "Engineering journal, since 2021";
+
+export const apiUrl = process.env.NEXT_PUBLIC_API_URL as string;
+
+if (!apiUrl && typeof window !== "undefined") {
+  // eslint-disable-next-line no-console
+  console.error("NEXT_PUBLIC_API_URL is not set.");
+}

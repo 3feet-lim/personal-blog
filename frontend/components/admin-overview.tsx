@@ -15,7 +15,7 @@ export function AdminOverview({
 }) {
   return (
     <section className="stack">
-      <div className="panel section-card">
+      <div>
         <div className="eyebrow">Admin Overview</div>
         <h1 className="section-title">관리자 대시보드</h1>
         <p>
@@ -30,20 +30,20 @@ export function AdminOverview({
         </div>
       </div>
 
-      <div className="grid">
-        <Link className="panel section-card card-link" href="/admin/blog">
-          <span className="badge">Content</span>
-          <h2>블로그 관리</h2>
+      <div className="list">
+        <Link className="post-list-item" href="/admin/blog">
+          <span className="post-date">Content</span>
+          <h3>블로그 관리</h3>
           <p>새 글 작성과 현재 게시물 확인</p>
         </Link>
-        <Link className="panel section-card card-link" href="/admin/albums">
-          <span className="badge">Storage</span>
-          <h2>앨범 관리</h2>
+        <Link className="post-list-item" href="/admin/albums">
+          <span className="post-date">Storage</span>
+          <h3>앨범 관리</h3>
           <p>앨범 생성과 이미지 업로드</p>
         </Link>
-        <Link className="panel section-card card-link" href="/admin/users">
-          <span className="badge">Access</span>
-          <h2>사용자 권한</h2>
+        <Link className="post-list-item" href="/admin/users">
+          <span className="post-date">Access</span>
+          <h3>사용자 권한</h3>
           <p>승인, family access, admin 권한 조정</p>
         </Link>
       </div>

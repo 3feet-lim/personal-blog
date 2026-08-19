@@ -1,27 +1,56 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getBlogPosts } from "../../lib/api";
 
-export const dynamic = "force-dynamic";
+import { getBlogPosts, type BlogPost } from "../../lib/api";
 
-export default async function BlogListPage() {
-  const data = await getBlogPosts();
-  const items = data?.items ?? [];
+function formatDate(value: string | null) {
+  if (!value) {
+    return "";
+  }
+  const date = new Date(value);
+  return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(2, "0")}`;
+}
+
+export default function BlogListPage() {
+  const [items, setItems] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getBlogPosts(100, 0)
+      .then((data) => setItems(data.items))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
-    <section className="panel section-card">
-      <div className="eyebrow">Public Blog</div>
+    <section>
+      <div className="eyebrow">Archive</div>
       <h1 className="section-title">Tech Blog</h1>
-      <p>백엔드 API에서 가져온 공개 게시물 목록입니다.</p>
-      <div className="list">
-        {items.map((post) => (
-          <Link key={post.slug} className="card-link" href={`/blog/${post.slug}`}>
-            <span className="badge">Published</span>
-            <h3>{post.title}</h3>
-            <p>{post.summary}</p>
-          </Link>
-        ))}
-      </div>
-      {items.length === 0 ? <p className="empty-state">표시할 게시물이 없습니다.</p> : null}
+      {loading ? (
+        <p className="empty-state">불러오는 중...</p>
+      ) : items.length === 0 ? (
+        <p className="empty-state">표시할 게시물이 없습니다.</p>
+      ) : (
+        <div className="list">
+          {items.map((post) => (
+            <Link key={post.slug} className="post-list-item" href={`/blog/post?slug=${encodeURIComponent(post.slug)}`}>
+              <span className="post-date">{formatDate(post.published_at)}</span>
+              <h3>{post.title}</h3>
+              <p>{post.summary}</p>
+              <div className="tag-row">
+                {post.tags.map((tag) => (
+                  <span key={tag} className="tag">
+                    {tag}
+                  </span>
+                ))}
+                <span className="read-time">{post.read_time} min read</span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

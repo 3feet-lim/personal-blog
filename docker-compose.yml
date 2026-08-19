@@ -1,42 +1,65 @@
 services:
-  frontend:
+  web:
     build:
       context: ./frontend
     ports:
       - "3000:3000"
     environment:
       NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-personal-blog}
-      BACKEND_URL: ${BACKEND_URL:-http://backend:8000}
-      NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL:-http://localhost:8000}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    volumes:
+      - ./frontend:/app
+      - web_node_modules:/app/node_modules
+    command: npm run dev
     depends_on:
-      - backend
+      - api
 
-  backend:
+  api:
     build:
       context: ./backend
     ports:
       - "8000:8000"
     environment:
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      DATABASE_URL: ${DATABASE_URL:-sqlite:///./data/app.db}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://personal_blog:personal_blog@db:5432/personal_blog}
       DEFAULT_AUTH_PROVIDER: ${DEFAULT_AUTH_PROVIDER:-google}
+      ENABLE_DEMO_AUTH: ${ENABLE_DEMO_AUTH:-false}
       SESSION_SECRET: ${SESSION_SECRET:-change-this-session-secret}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-personal_blog_session}
+      SESSION_HTTPS_ONLY: ${SESSION_HTTPS_ONLY:-false}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:8000/api/auth/callback/google}
-      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-minio}
-      STORAGE_ENDPOINT: ${STORAGE_ENDPOINT:-http://minio:9000}
-      STORAGE_BUCKET: ${STORAGE_BUCKET:-personal-blog}
-      STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-minioadmin}
-      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:-minioadmin}
-      STORAGE_SECURE: ${STORAGE_SECURE:-false}
-    volumes:
-      - backend_data:/app/data
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
+      S3_BUCKET: ${S3_BUCKET:-personal-blog}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
     depends_on:
-      - minio
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-personal_blog}
+      POSTGRES_USER: ${POSTGRES_USER:-personal_blog}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-personal_blog}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-personal_blog}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2024-01-16T16-07-38Z
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"
@@ -46,21 +69,13 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
     volumes:
       - minio_data:/data
-
-  postgres:
-    image: postgres:16-alpine
-    profiles:
-      - postgres
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-personal_blog}
-      POSTGRES_USER: ${POSTGRES_USER:-personal_blog}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-personal_blog}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
-  backend_data:
-  minio_data:
   postgres_data:
+  minio_data:
+  web_node_modules:

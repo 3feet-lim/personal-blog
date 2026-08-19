@@ -1,26 +1,50 @@
 # Frontend
 
-Next.js App Router MVP frontend for the personal blog project.
+Next.js 정적 export 프런트엔드. `output: "export"`로 빌드하며 서버 컴포넌트의 SSR, Route Handler, Server Action을 사용하지 않습니다. 모든 동적 데이터는 브라우저에서 `NEXT_PUBLIC_API_URL`이 가리키는 FastAPI 백엔드를 직접 호출해 가져옵니다.
 
 ## Routes
 
 - `/`
 - `/blog`
-- `/blog/[slug]`
+- `/blog/post?slug=...` (정적 셸 + 클라이언트에서 `slug` query로 조회)
 - `/album`
-- `/album/[slug]`
+- `/album/detail?slug=...` (정적 셸 + 클라이언트에서 `slug` query로 조회)
 - `/login`
-- `/admin`
+- `/admin`, `/admin/blog`, `/admin/albums`, `/admin/users`
 
-## Local demo auth
+## 환경변수
 
-OAuth is not fully implemented yet. Use query params on protected routes or the `/login` page to simulate a session:
+- `NEXT_PUBLIC_API_URL`: 브라우저가 호출할 API 주소. 하드코딩된 fallback이 없으므로 반드시 설정해야 합니다.
+- `NEXT_PUBLIC_APP_NAME`: 상단 브랜드 표시용 (옵션).
+
+## 로컬 개발
+
+```bash
+npm install
+npm run dev
+```
+
+## 정적 빌드
+
+```bash
+npm run build
+```
+
+`out/` 디렉토리에 정적 파일만 생성됩니다. 로컬에서 산출물만 확인하려면:
+
+```bash
+npx serve out -l 4000
+```
+
+## 인증
+
+세션은 서버 쿠키로 관리하는 API 인증(`credentials: "include"`)을 기본으로 합니다. 로컬 개발 편의를 위한 데모 로그인은 `lib/auth.ts`의 `useSession`과 `/login` 페이지에서 제공하며, 백엔드가 `ENABLE_DEMO_AUTH=true`일 때만 동작합니다.
 
 - `family@example.com`
 - `admin@example.com`
 - `guest@example.com`
 
-The frontend forwards the selected demo identity to the backend with the `x-demo-user` header so you can validate auth boundaries locally.
+데모 이메일은 서버 쿠키가 아니라 브라우저 `localStorage`에 저장되며, API 요청 시 `x-demo-user` 헤더로 전달됩니다.
 
 ## Local E2E
 
