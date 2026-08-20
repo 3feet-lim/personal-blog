@@ -5,6 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "personal-blog-backend"
+    site_name: str = "Jaeyoung's Notes"
     environment: str = "development"
     frontend_url: str = "http://localhost:3000"
     cors_origins: str = "http://localhost:3000"

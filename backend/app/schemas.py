@@ -58,6 +58,17 @@ class AdminBlogPostCreateIn(BaseModel):
     series_slug: str | None = None
 
 
+class AdminBlogPostUpdateIn(BaseModel):
+    status: str
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, value: str) -> str:
+        if value not in {"draft", "published"}:
+            raise ValueError("status must be 'draft' or 'published'.")
+        return value
+
+
 class AdminAlbumCreateIn(BaseModel):
     title: str
     description: str = ""
@@ -97,3 +108,11 @@ class AdminUserCreateIn(BaseModel):
         if value not in {"member", "admin"}:
             raise ValueError("role must be 'member' or 'admin'.")
         return value
+
+
+class AdminSiteSettingsUpdateIn(BaseModel):
+    site_name: str | None = None
+    site_subtitle: str | None = None
+    footer_text: str | None = None
+    github_url: str | None = None
+    mastodon_url: str | None = None

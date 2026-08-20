@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { getBlogPosts, getSeriesList, getTagsList, type BlogPost, type Series, type Tag } from "../lib/api";
+import { formatRelativeTime } from "../lib/format-date";
 
 const PAGE_SIZE = 6;
 
@@ -72,18 +73,16 @@ export default function HomePage() {
             <article>
               <div className="eyebrow">Latest / {formatDate(latest.published_at)}</div>
               <Link href={`/blog/post?slug=${encodeURIComponent(latest.slug)}`}>
-                <h1 style={{ fontSize: "2.2rem", fontWeight: 400, margin: "0 0 16px", lineHeight: 1.15 }}>
-                  {latest.title}
-                </h1>
+                <h1 className="latest-title">{latest.title}</h1>
               </Link>
-              <p>{latest.summary}</p>
+              <p className="latest-summary">{latest.summary}</p>
               <div className="tag-row">
                 {latest.tags.map((tag) => (
                   <span key={tag} className="tag">
                     {tag}
                   </span>
                 ))}
-                <span className="read-time">{latest.read_time} min read</span>
+                <span className="read-time">{formatRelativeTime(latest.published_at)}</span>
               </div>
             </article>
 
@@ -104,7 +103,7 @@ export default function HomePage() {
                           {tag}
                         </span>
                       ))}
-                      <span className="read-time">{post.read_time} min read</span>
+                      <span className="read-time">{formatRelativeTime(post.published_at)}</span>
                     </div>
                   </Link>
                 ))}
@@ -140,9 +139,9 @@ export default function HomePage() {
           <h4>Tags</h4>
           <div className="tag-row">
             {tags.map((item) => (
-              <span key={item.tag} className="tag">
+              <Link key={item.tag} href={`/tags?tag=${encodeURIComponent(item.tag)}`} className="tag">
                 {item.tag}
-              </span>
+              </Link>
             ))}
             {tags.length === 0 ? <p className="empty-state">태그가 없습니다.</p> : null}
           </div>

@@ -5,7 +5,11 @@ services:
     ports:
       - "3000:3000"
     environment:
-      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-personal-blog}
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Jaeyoung's Notes}
+      NEXT_PUBLIC_SITE_SUBTITLE: ${NEXT_PUBLIC_SITE_SUBTITLE:-Engineering journal, since 2021}
+      NEXT_PUBLIC_FOOTER_TEXT: ${NEXT_PUBLIC_FOOTER_TEXT:-© 2026 Jaeyoung Kim}
+      NEXT_PUBLIC_GITHUB_URL: ${NEXT_PUBLIC_GITHUB_URL:-https://github.com}
+      NEXT_PUBLIC_MASTODON_URL: ${NEXT_PUBLIC_MASTODON_URL:-https://mastodon.social}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     volumes:
       - ./frontend:/app
@@ -22,6 +26,7 @@ services:
     environment:
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      SITE_NAME: ${NEXT_PUBLIC_APP_NAME:-Jaeyoung's Notes}
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://personal_blog:personal_blog@db:5432/personal_blog}
       DEFAULT_AUTH_PROVIDER: ${DEFAULT_AUTH_PROVIDER:-google}
       ENABLE_DEMO_AUTH: ${ENABLE_DEMO_AUTH:-false}

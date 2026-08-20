@@ -48,7 +48,8 @@ export function AdminUsersManager({
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     const email = String(formData.get("email") ?? "");
     setCreating(true);
 
@@ -63,7 +64,7 @@ export function AdminUsersManager({
         demoEmail
       );
       setCreateNotice({ type: "success", text: `${email} 사용자를 등록했습니다.` });
-      event.currentTarget.reset();
+      form.reset();
       onChanged?.();
     } catch (err) {
       setCreateNotice({ type: "error", text: describeCreateUserError(err) });

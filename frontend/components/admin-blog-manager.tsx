@@ -2,7 +2,8 @@
 
 import { type FormEvent, useEffect, useState } from "react";
 
-import { createAdminSeries, createBlogPost, getSeriesList, type BlogPost, type Series } from "../lib/api";
+import { createAdminSeries, createBlogPost, getSeriesList, updateBlogPostStatus, type BlogPost, type Series } from "../lib/api";
+import { formatRelativeTime } from "../lib/format-date";
 
 export function AdminBlogManager({
   demoEmail,
@@ -17,6 +18,7 @@ export function AdminBlogManager({
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [creatingSeries, setCreatingSeries] = useState(false);
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [series, setSeries] = useState<Series[]>([]);
 
   function loadSeries() {
@@ -31,7 +33,8 @@ export function AdminBlogManager({
 
   async function handleCreateSeries(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     setCreatingSeries(true);
     setError(null);
 
@@ -44,7 +47,7 @@ export function AdminBlogManager({
         demoEmail
       );
       setNotice("series created");
-      event.currentTarget.reset();
+      form.reset();
       loadSeries();
     } catch (err) {
       setError(err instanceof Error ? err.message : "시리즈 생성에 실패했습니다.");
@@ -55,7 +58,8 @@ export function AdminBlogManager({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     setSubmitting(true);
     setError(null);
 
@@ -79,12 +83,30 @@ export function AdminBlogManager({
         demoEmail
       );
       setNotice("post created");
-      event.currentTarget.reset();
+      form.reset();
       onCreated?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "글 생성에 실패했습니다.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleStatusChange(post: BlogPost, status: string) {
+    if (post.id === undefined) {
+      return;
+    }
+    setUpdatingId(post.id);
+    setError(null);
+
+    try {
+      await updateBlogPostStatus(post.id, status, demoEmail);
+      setNotice(status === "published" ? "post published" : "post reverted to draft");
+      onCreated?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "상태 변경에 실패했습니다.");
+    } finally {
+      setUpdatingId(null);
     }
   }
 
@@ -133,12 +155,12 @@ export function AdminBlogManager({
       </form>
 
       <div>
-        <div className="eyebrow">Published Posts</div>
-        <h2 className="section-title">현재 블로그 글</h2>
+        <div className="eyebrow">All Posts</div>
+        <h2 className="section-title">현재 블로그 글 (draft 포함)</h2>
         <div className="list">
           {posts.map((post) => (
             <div className="post-list-item" key={post.slug}>
-              <span className="post-date">{post.published_at ? "published" : "draft"}</span>
+              <span className="post-date">{post.status ?? (post.published_at ? "published" : "draft")}</span>
               <h3>{post.title}</h3>
               <p>{post.summary}</p>
               <div className="tag-row">
@@ -147,8 +169,31 @@ export function AdminBlogManager({
                     {tag}
                   </span>
                 ))}
-                <span className="read-time">{post.read_time} min read</span>
+                <span className="read-time">{formatRelativeTime(post.published_at)}</span>
               </div>
+              {post.id !== undefined ? (
+                <div className="cta-row">
+                  {post.status === "draft" ? (
+                    <button
+                      className="button secondary"
+                      type="button"
+                      disabled={updatingId === post.id}
+                      onClick={() => handleStatusChange(post, "published")}
+                    >
+                      발행하기
+                    </button>
+                  ) : (
+                    <button
+                      className="button secondary"
+                      type="button"
+                      disabled={updatingId === post.id}
+                      onClick={() => handleStatusChange(post, "draft")}
+                    >
+                      draft로 되돌리기
+                    </button>
+                  )}
+                </div>
+              ) : null}
             </div>
           ))}
         </div>

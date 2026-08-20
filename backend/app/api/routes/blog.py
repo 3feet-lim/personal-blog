@@ -6,7 +6,8 @@ from sqlalchemy import func, select
 
 from app.api.deps import DbSession
 from app.core.config import get_settings
-from app.models import BlogPost, Series
+from app.models import BlogPost, Series, SiteSettings
+from app.models.site_settings import SITE_SETTINGS_SINGLETON_ID
 
 router = APIRouter(prefix="/api/blog", tags=["blog"])
 
@@ -89,13 +90,15 @@ def list_tags(db: DbSession):
 @router.get("/rss.xml")
 def rss_feed(db: DbSession):
     settings = get_settings()
+    site_settings = db.get(SiteSettings, SITE_SETTINGS_SINGLETON_ID)
+    site_name = site_settings.site_name if site_settings is not None else settings.app_name
     items = db.scalars(
         select(BlogPost).where(BlogPost.status == "published").order_by(BlogPost.id.desc()).limit(50)
     ).all()
 
     entries = []
     for item in items:
-        link = f"{settings.frontend_url}/blog/post?slug={item.slug}"
+        link = f"{settings.frontend_url}/blog/post/?slug={item.slug}"
         pub_date = item.published_at.strftime("%a, %d %b %Y %H:%M:%S GMT") if item.published_at else ""
         entries.append(
             "<item>"
@@ -110,7 +113,7 @@ def rss_feed(db: DbSession):
     channel = (
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
         "<rss version=\"2.0\"><channel>"
-        f"<title>{escape(settings.app_name)}</title>"
+        f"<title>{escape(site_name)}</title>"
         f"<link>{escape(settings.frontend_url)}</link>"
         "<description>Tech blog RSS feed</description>"
         + "".join(entries)

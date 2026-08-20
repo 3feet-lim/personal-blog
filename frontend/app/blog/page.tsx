@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { getBlogPosts, type BlogPost } from "../../lib/api";
+import { formatRelativeTime } from "../../lib/format-date";
 
 function formatDate(value: string | null) {
   if (!value) {
@@ -45,7 +46,7 @@ export default function BlogListPage() {
                     {tag}
                   </span>
                 ))}
-                <span className="read-time">{post.read_time} min read</span>
+                <span className="read-time">{formatRelativeTime(post.published_at)}</span>
               </div>
             </Link>
           ))}

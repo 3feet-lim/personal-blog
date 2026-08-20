@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { AdminOverview } from "../../components/admin-overview";
-import { getAlbums, getBlogPosts, type Album, type BlogPost } from "../../lib/api";
+import { getAdminBlogPosts, getAlbums, type Album, type BlogPost } from "../../lib/api";
 import { isAdmin, useSession } from "../../lib/auth";
 
 export default function AdminPage() {
@@ -20,7 +20,7 @@ export default function AdminPage() {
     }
 
     setLoading(true);
-    Promise.all([getBlogPosts(), getAlbums(demoEmail)])
+    Promise.all([getAdminBlogPosts(demoEmail), getAlbums(demoEmail)])
       .then(([postsData, albumsData]) => {
         setPosts(postsData.items);
         setAlbums(albumsData.items);

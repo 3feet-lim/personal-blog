@@ -7,7 +7,8 @@ const ADMIN_LINKS = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/blog", label: "Blog" },
   { href: "/admin/albums", label: "Albums" },
-  { href: "/admin/users", label: "Users" }
+  { href: "/admin/users", label: "Users" },
+  { href: "/admin/settings", label: "Settings" }
 ];
 
 const VIEW_LINKS = [

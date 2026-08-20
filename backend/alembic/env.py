@@ -5,7 +5,7 @@ from sqlalchemy import engine_from_config, pool
 
 from app.core.config import get_settings
 from app.db.session import Base
-from app.models import Album, AlbumItem, Asset, AuthIdentity, BlogPost, Series, User  # noqa: F401
+from app.models import Album, AlbumItem, Asset, AuthIdentity, BlogPost, Series, SiteSettings, User  # noqa: F401
 
 config = context.config
 

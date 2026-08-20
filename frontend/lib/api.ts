@@ -8,6 +8,14 @@ export type SessionUser = {
   familyAccess: boolean;
 };
 
+export type SiteSettings = {
+  site_name: string;
+  site_subtitle: string;
+  footer_text: string;
+  github_url: string;
+  mastodon_url: string;
+};
+
 export type BlogPostSeries = {
   slug: string;
   title: string;
@@ -22,6 +30,9 @@ export type BlogPost = {
   tags: string[];
   read_time: number;
   series: BlogPostSeries | null;
+  // Present only on admin-only responses (list/patch), absent on the public API.
+  id?: number;
+  status?: string;
 };
 
 export type BlogPostList = {
@@ -139,6 +150,17 @@ export async function getSession(demoEmail?: string) {
   return request<{ user: SessionUser }>("/api/me", { demoEmail });
 }
 
+export async function getSiteSettings() {
+  return request<SiteSettings>("/api/settings");
+}
+
+export async function updateSiteSettings(
+  payload: Partial<SiteSettings>,
+  demoEmail?: string
+) {
+  return requestJson<SiteSettings>("/api/admin/settings", "PATCH", payload, demoEmail);
+}
+
 export async function getAuthProviders() {
   return request<{ providers: AuthProvider[] }>("/api/auth/providers");
 }
@@ -153,6 +175,29 @@ export async function devLogin(email: string) {
 
 export async function getBlogPosts(limit = 20, offset = 0) {
   return request<BlogPostList>(`/api/blog/posts?limit=${limit}&offset=${offset}`);
+}
+
+const MAX_LIST_LIMIT = 100;
+
+/**
+ * Fetches every published blog post by paging through `/api/blog/posts`
+ * (the endpoint caps `limit` at 100), stopping once all `total` items have
+ * been collected or a safety cap is hit to avoid runaway loops.
+ */
+export async function getAllBlogPosts(maxItems = 1000): Promise<BlogPost[]> {
+  const items: BlogPost[] = [];
+  let offset = 0;
+
+  while (items.length < maxItems) {
+    const page = await getBlogPosts(MAX_LIST_LIMIT, offset);
+    items.push(...page.items);
+    offset += page.items.length;
+    if (page.items.length === 0 || items.length >= page.total) {
+      break;
+    }
+  }
+
+  return items;
 }
 
 export async function getBlogPost(slug: string) {
@@ -205,6 +250,14 @@ export async function createBlogPost(
     payload,
     demoEmail
   );
+}
+
+export async function getAdminBlogPosts(demoEmail?: string) {
+  return request<{ items: BlogPost[] }>("/api/admin/blog/posts", { demoEmail });
+}
+
+export async function updateBlogPostStatus(postId: number, status: string, demoEmail?: string) {
+  return requestJson<BlogPost>(`/api/admin/blog/posts/${postId}`, "PATCH", { status }, demoEmail);
 }
 
 export async function createAdminSeries(

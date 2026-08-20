@@ -6,11 +6,16 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select
 
 from app.api.deps import DbSession, current_user
-from app.models import Album, AlbumItem, Asset, BlogPost, Series, User
+from app.api.routes.blog import _serialize_post
+from app.api.routes.settings import _serialize_settings
+from app.models import Album, AlbumItem, Asset, BlogPost, Series, SiteSettings, User
+from app.models.site_settings import SITE_SETTINGS_SINGLETON_ID
 from app.schemas import (
     AdminAlbumCreateIn,
     AdminBlogPostCreateIn,
+    AdminBlogPostUpdateIn,
     AdminSeriesCreateIn,
+    AdminSiteSettingsUpdateIn,
     AdminUserCreateIn,
     AdminUserUpdateIn,
 )
@@ -22,7 +27,12 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 def slugify(value: str) -> str:
     normalized = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
-    return normalized or "untitled"
+    if normalized:
+        return normalized
+    # Titles with no ASCII alphanumeric characters (e.g. Korean-only titles)
+    # would otherwise all collapse to the same "untitled" slug and collide.
+    # Append a short random suffix so each such title gets a unique slug.
+    return f"untitled-{uuid4().hex[:8]}"
 
 
 def estimate_read_time(content: str) -> int:
@@ -78,9 +88,23 @@ def create_user(payload: AdminUserCreateIn, db: DbSession, user=Depends(current_
     }
 
 
+@router.get("/blog/posts")
+def list_admin_blog_posts(db: DbSession, user=Depends(current_user)):
+    require_admin(user)
+    items = db.scalars(select(BlogPost).order_by(BlogPost.id.desc())).all()
+    return {
+        "items": [
+            {"id": item.id, "status": item.status, **_serialize_post(item)}
+            for item in items
+        ]
+    }
+
+
 @router.post("/blog/posts")
 def create_blog_post(payload: AdminBlogPostCreateIn, db: DbSession, user=Depends(current_user)):
     admin = require_admin(user)
+    if payload.status not in {"draft", "published"}:
+        raise HTTPException(status_code=422, detail="status must be 'draft' or 'published'.")
     slug = payload.slug or slugify(payload.title)
     existing = db.scalar(select(BlogPost).where(BlogPost.slug == slug))
     if existing is not None:
@@ -109,6 +133,31 @@ def create_blog_post(payload: AdminBlogPostCreateIn, db: DbSession, user=Depends
     db.commit()
     db.refresh(post)
     return {"id": post.id, "slug": post.slug, "status": post.status}
+
+
+@router.patch("/blog/posts/{post_id}")
+def update_blog_post_status(
+    post_id: int,
+    payload: AdminBlogPostUpdateIn,
+    db: DbSession,
+    user=Depends(current_user),
+):
+    require_admin(user)
+    post = db.scalar(select(BlogPost).where(BlogPost.id == post_id))
+    if post is None:
+        raise HTTPException(status_code=404, detail="Post not found.")
+
+    if post.status != payload.status:
+        post.status = payload.status
+        if payload.status == "published" and post.published_at is None:
+            post.published_at = datetime.now(UTC)
+        elif payload.status == "draft":
+            post.published_at = None
+
+    db.add(post)
+    db.commit()
+    db.refresh(post)
+    return {"id": post.id, "status": post.status, **_serialize_post(post)}
 
 
 @router.post("/series", status_code=201)
@@ -208,6 +257,7 @@ async def upload_album_item(
     extension = (file.filename or "upload.bin").rsplit(".", maxsplit=1)[-1].lower()
     object_key = f"album/private/{album.slug}/{uuid4().hex}.{extension}"
     adapter = get_storage_adapter()
+    adapter.ensure_bucket()
     adapter.upload_bytes(object_key, content, content_type)
 
     asset = Asset(
@@ -240,3 +290,20 @@ async def upload_album_item(
         "asset_id": asset.id,
         "object_key": asset.object_key,
     }
+
+
+@router.patch("/settings")
+def update_settings(payload: AdminSiteSettingsUpdateIn, db: DbSession, user=Depends(current_user)):
+    require_admin(user)
+    settings = db.get(SiteSettings, SITE_SETTINGS_SINGLETON_ID)
+    if settings is None:
+        raise HTTPException(status_code=500, detail="Site settings are not initialized.")
+
+    update_data = payload.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(settings, field, value)
+
+    db.add(settings)
+    db.commit()
+    db.refresh(settings)
+    return _serialize_settings(settings)

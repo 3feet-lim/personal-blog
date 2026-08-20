@@ -1,10 +1,12 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 import { MarkdownContent } from "../../../components/markdown-content";
 import { getBlogPost, type BlogPost } from "../../../lib/api";
+import { formatRelativeTime } from "../../../lib/format-date";
 
 function BlogDetail() {
   const searchParams = useSearchParams();
@@ -50,11 +52,11 @@ function BlogDetail() {
       <p>{post.summary}</p>
       <div className="tag-row">
         {post.tags.map((tag) => (
-          <span key={tag} className="tag">
+          <Link key={tag} href={`/tags?tag=${encodeURIComponent(tag)}`} className="tag">
             {tag}
-          </span>
+          </Link>
         ))}
-        <span className="read-time">{post.read_time} min read</span>
+        <span className="read-time">{formatRelativeTime(post.published_at)}</span>
       </div>
       <MarkdownContent source={post.content} />
     </article>

@@ -2,23 +2,23 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { AdminBlogManager } from "../../../components/admin-blog-manager";
-import { getAdminBlogPosts, type BlogPost } from "../../../lib/api";
+import { AdminSettingsManager } from "../../../components/admin-settings-manager";
+import { getSiteSettings, type SiteSettings } from "../../../lib/api";
 import { isAdmin, useSession } from "../../../lib/auth";
 
-export default function AdminBlogPage() {
+export default function AdminSettingsPage() {
   const { user, demoEmail, loading: sessionLoading } = useSession();
   const admin = isAdmin(user.role);
-  const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
     setLoading(true);
-    getAdminBlogPosts(demoEmail)
-      .then((data) => setPosts(data.items))
-      .catch(() => setPosts([]))
+    getSiteSettings()
+      .then((data) => setSettings(data))
+      .catch(() => setSettings(null))
       .finally(() => setLoading(false));
-  }, [demoEmail]);
+  }, []);
 
   useEffect(() => {
     if (sessionLoading || !admin) {
@@ -48,5 +48,11 @@ export default function AdminBlogPage() {
     return <p className="empty-state">불러오는 중...</p>;
   }
 
-  return <AdminBlogManager demoEmail={demoEmail ?? "admin@example.com"} posts={posts} onCreated={load} />;
+  if (!settings) {
+    return <p className="empty-state">설정을 불러오지 못했습니다.</p>;
+  }
+
+  return (
+    <AdminSettingsManager demoEmail={demoEmail ?? "admin@example.com"} settings={settings} onChanged={load} />
+  );
 }

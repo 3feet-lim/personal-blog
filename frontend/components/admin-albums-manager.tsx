@@ -20,7 +20,8 @@ export function AdminAlbumsManager({
 
   async function handleCreateAlbum(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     setCreating(true);
     setError(null);
 
@@ -34,7 +35,7 @@ export function AdminAlbumsManager({
         demoEmail
       );
       setNotice("album created");
-      event.currentTarget.reset();
+      form.reset();
       onChanged?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "앨범 생성에 실패했습니다.");
@@ -45,9 +46,11 @@ export function AdminAlbumsManager({
 
   async function handleUpload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     const albumId = Number(formData.get("albumId"));
     const file = formData.get("file");
+    const title = String(formData.get("title") ?? "");
     const caption = String(formData.get("caption") ?? "");
 
     if (!file || typeof file === "string" || file.size === 0) {
@@ -59,9 +62,9 @@ export function AdminAlbumsManager({
     setError(null);
 
     try {
-      await uploadAlbumImage(albumId, file, caption, demoEmail);
+      await uploadAlbumImage(albumId, file, caption, demoEmail, title);
       setNotice("image uploaded");
-      event.currentTarget.reset();
+      form.reset();
       onChanged?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "업로드에 실패했습니다.");
@@ -101,6 +104,7 @@ export function AdminAlbumsManager({
               </option>
             ))}
           </select>
+          <input name="title" placeholder="제목 (optional)" />
           <input name="caption" placeholder="캡션 (optional)" />
           <input name="file" type="file" accept="image/*" required />
           <button className="button primary" type="submit" disabled={uploading || albums.length === 0}>

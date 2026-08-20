@@ -95,7 +95,7 @@ export default function FamilyFeedPage() {
     return (
       <section>
         <div className="eyebrow">Private · {feed?.approved_family_count ?? 0}명만 볼 수 있어요</div>
-        <h1 className="section-title">우리 집 기록</h1>
+        <h1 className="family-title">우리 집 기록</h1>
         <p className="empty-state">표시할 사진이 없습니다.</p>
       </section>
     );
@@ -106,7 +106,8 @@ export default function FamilyFeedPage() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 16 }}>
         <div>
           <div className="eyebrow">Private · 승인된 {feed.approved_family_count}명만 볼 수 있어요</div>
-          <h1 className="section-title">우리 집 기록</h1>
+          <h1 className="family-title">우리 집 기록</h1>
+          <p className="family-intro">사진 한 장에 그날 하루. 아이가 나중에 읽을 수 있게 남겨둡니다.</p>
         </div>
         <div className="year-filter-row">
           {feed.years.map((year) => (
@@ -128,13 +129,14 @@ export default function FamilyFeedPage() {
             <span>{MONTH_NAMES[month]}</span>
             <span className="entry-count">{monthItems.length} entries</span>
           </div>
+          <div className="rule" />
           <div className="album-grid">
             {monthItems.map((item) => (
               <div className="feed-item" key={item.id}>
                 {item.asset_id ? (
                   <AuthorizedImage
                     assetId={item.asset_id}
-                    alt={item.caption || item.album_title}
+                    alt={item.title || item.caption || item.album_title}
                     demoEmail={demoEmail}
                     className="album-image"
                   />
@@ -142,6 +144,7 @@ export default function FamilyFeedPage() {
                   <div className="album-image" />
                 )}
                 <span className="feed-item-date">{formatDay(item.created_at)}</span>
+                {item.title ? <h3>{item.title}</h3> : null}
                 {item.caption ? <p>{item.caption}</p> : null}
               </div>
             ))}
