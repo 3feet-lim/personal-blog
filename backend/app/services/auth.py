@@ -147,3 +147,16 @@ def require_admin(user: User | None) -> User:
     if user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required.")
     return user
+
+
+# Roles allowed to author/manage blog content (posts, series, tags).
+# `admin` keeps full access; `maintainer` is content-only (no users/settings).
+WRITER_ROLES = {"admin", "maintainer"}
+
+
+def require_writer(user: User | None) -> User:
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required.")
+    if not user.approved or user.role not in WRITER_ROLES:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Writer access required.")
+    return user

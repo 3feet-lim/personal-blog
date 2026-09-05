@@ -27,12 +27,16 @@ export function SiteFooter() {
       <div className="shell footer-row">
         <div>{footerText}</div>
         <div className="footer-links">
-          <a href={githubUrl} target="_blank" rel="noreferrer">
-            GitHub
-          </a>
-          <a href={mastodonUrl} target="_blank" rel="noreferrer">
-            Mastodon
-          </a>
+          {githubUrl ? (
+            <a href={githubUrl} target="_blank" rel="noreferrer">
+              GitHub
+            </a>
+          ) : null}
+          {mastodonUrl ? (
+            <a href={mastodonUrl} target="_blank" rel="noreferrer">
+              Mastodon
+            </a>
+          ) : null}
         </div>
       </div>
     </footer>

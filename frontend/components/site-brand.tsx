@@ -15,6 +15,11 @@ export function SiteBrand() {
       .then((data) => {
         setName(data.site_name);
         setSubtitle(data.site_subtitle);
+        // The app is a static export, so layout.tsx's metadata.title is baked
+        // in at build time and would keep showing the old name after an admin
+        // rename. Sync the live name into the tab title so it stays consistent
+        // with the header without needing a rebuild.
+        document.title = data.site_name;
       })
       .catch(() => {
         // keep the fallback values on failure

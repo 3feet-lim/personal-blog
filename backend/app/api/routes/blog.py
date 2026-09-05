@@ -91,7 +91,7 @@ def list_tags(db: DbSession):
 def rss_feed(db: DbSession):
     settings = get_settings()
     site_settings = db.get(SiteSettings, SITE_SETTINGS_SINGLETON_ID)
-    site_name = site_settings.site_name if site_settings is not None else settings.app_name
+    site_name = site_settings.site_name if site_settings is not None else settings.site_name
     items = db.scalars(
         select(BlogPost).where(BlogPost.status == "published").order_by(BlogPost.id.desc()).limit(50)
     ).all()

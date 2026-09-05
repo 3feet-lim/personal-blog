@@ -91,3 +91,8 @@ export function canAccessFamily(role: string, familyAccess: boolean) {
 export function isAdmin(role: string) {
   return role === "admin";
 }
+
+// admin and maintainer may author/manage blog content; viewer/anonymous cannot.
+export function canWrite(role: string) {
+  return role === "admin" || role === "maintainer";
+}

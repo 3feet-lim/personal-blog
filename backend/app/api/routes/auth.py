@@ -63,7 +63,7 @@ async def callback_google(request: Request, code: str | None = None, state: str 
     request.session["user_email"] = user.email
     request.session["auth_provider"] = "google"
     request.session.pop("google_oauth_state", None)
-    next_path = "/admin" if user.role == "admin" else "/family"
+    next_path = "/admin" if user.role == "admin" else "/blog"
     return RedirectResponse(f"{settings.frontend_url}{next_path}", status_code=302)
 
 
@@ -106,7 +106,9 @@ def me(user=Depends(current_user)):
         "user": {
             "email": user.email,
             "name": user.display_name,
-            "role": "family" if user.family_access and user.role != "admin" else user.role,
+            # Expose the real role (admin/maintainer/viewer) so the frontend can
+            # gate write access. Family-album access is a separate boolean below.
+            "role": user.role,
             "approved": user.approved,
             "familyAccess": user.family_access,
         }

@@ -58,7 +58,7 @@ export function AdminUsersManager({
         {
           email,
           display_name: String(formData.get("display_name") ?? "") || undefined,
-          role: String(formData.get("role") ?? "member"),
+          role: String(formData.get("role") ?? "viewer"),
           family_access: formData.get("family_access") === "on"
         },
         demoEmail
@@ -82,7 +82,7 @@ export function AdminUsersManager({
       await updateUserAccess(
         userId,
         {
-          role: String(formData.get("role") ?? "member"),
+          role: String(formData.get("role") ?? "viewer"),
           approved: formData.get("approved") === "on",
           family_access: formData.get("family_access") === "on"
         },
@@ -116,8 +116,9 @@ export function AdminUsersManager({
         </p>
         <input name="email" type="email" placeholder="user@example.com" required />
         <input name="display_name" placeholder="표시 이름 (optional)" />
-        <select name="role" defaultValue="member">
-          <option value="member">member</option>
+        <select name="role" defaultValue="viewer">
+          <option value="viewer">viewer</option>
+          <option value="maintainer">maintainer</option>
           <option value="admin">admin</option>
         </select>
         <label>
@@ -148,7 +149,8 @@ export function AdminUsersManager({
                 <p>{member.email}</p>
               </div>
               <select name="role" defaultValue={member.role}>
-                <option value="member">member</option>
+                <option value="viewer">viewer</option>
+                <option value="maintainer">maintainer</option>
                 <option value="admin">admin</option>
               </select>
               <label>

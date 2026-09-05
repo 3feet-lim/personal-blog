@@ -3,7 +3,8 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from sqlalchemy import select
+from sqlalchemy import or_, select
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import DbSession, current_user
 from app.api.routes.blog import _serialize_post
@@ -13,13 +14,14 @@ from app.models.site_settings import SITE_SETTINGS_SINGLETON_ID
 from app.schemas import (
     AdminAlbumCreateIn,
     AdminBlogPostCreateIn,
+    AdminBlogPostEditIn,
     AdminBlogPostUpdateIn,
     AdminSeriesCreateIn,
     AdminSiteSettingsUpdateIn,
     AdminUserCreateIn,
     AdminUserUpdateIn,
 )
-from app.services.auth import require_admin
+from app.services.auth import require_admin, require_writer
 from app.services.storage import get_storage_adapter
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -90,11 +92,26 @@ def create_user(payload: AdminUserCreateIn, db: DbSession, user=Depends(current_
 
 @router.get("/blog/posts")
 def list_admin_blog_posts(db: DbSession, user=Depends(current_user)):
-    require_admin(user)
-    items = db.scalars(select(BlogPost).order_by(BlogPost.id.desc())).all()
+    writer = require_writer(user)
+    # Eager-load the `series` relationship so serializing the list stays a
+    # single query instead of an N+1 lazy-load per post that has a series.
+    stmt = select(BlogPost).options(selectinload(BlogPost.series)).order_by(BlogPost.id.desc())
+    if writer.role != "admin":
+        # Maintainers see every published post plus their own drafts — never
+        # someone else's unpublished work.
+        stmt = stmt.where(or_(BlogPost.status == "published", BlogPost.author_id == writer.id))
+    items = db.scalars(stmt).all()
     return {
         "items": [
-            {"id": item.id, "status": item.status, **_serialize_post(item)}
+            # Spread the shared serializer first so the admin-only keys always
+            # win, even if _serialize_post later gains those keys. `editable`
+            # tells the UI whether to show the manage menu for this post.
+            {
+                **_serialize_post(item),
+                "id": item.id,
+                "status": item.status,
+                "editable": writer.role == "admin" or item.author_id == writer.id,
+            }
             for item in items
         ]
     }
@@ -102,12 +119,13 @@ def list_admin_blog_posts(db: DbSession, user=Depends(current_user)):
 
 @router.post("/blog/posts")
 def create_blog_post(payload: AdminBlogPostCreateIn, db: DbSession, user=Depends(current_user)):
-    admin = require_admin(user)
+    writer = require_writer(user)
     if payload.status not in {"draft", "published"}:
         raise HTTPException(status_code=422, detail="status must be 'draft' or 'published'.")
-    slug = payload.slug or slugify(payload.title)
-    existing = db.scalar(select(BlogPost).where(BlogPost.slug == slug))
-    if existing is not None:
+
+    explicit_slug = payload.slug or None
+    if explicit_slug and db.scalar(select(BlogPost).where(BlogPost.slug == explicit_slug)) is not None:
+        # A custom slug is respected as-is; a collision is a real conflict.
         raise HTTPException(status_code=409, detail="Slug already exists.")
 
     series_id = None
@@ -118,7 +136,9 @@ def create_blog_post(payload: AdminBlogPostCreateIn, db: DbSession, user=Depends
         series_id = series.id
 
     post = BlogPost(
-        slug=slug,
+        # Placeholder for the auto (numeric) case; replaced with the post id
+        # after flush. An explicit slug is used directly.
+        slug=explicit_slug or f"__pending-{uuid4().hex}",
         title=payload.title,
         summary=payload.summary,
         content=payload.content,
@@ -126,10 +146,14 @@ def create_blog_post(payload: AdminBlogPostCreateIn, db: DbSession, user=Depends
         tags=payload.tags,
         read_time=estimate_read_time(payload.content),
         series_id=series_id,
-        author_id=admin.id,
+        author_id=writer.id,
         published_at=datetime.now(UTC) if payload.status == "published" else None,
     )
     db.add(post)
+    db.flush()  # assigns the autoincrement id
+    if not explicit_slug:
+        # Slug is just the post number: always unique, no title collisions.
+        post.slug = str(post.id)
     db.commit()
     db.refresh(post)
     return {"id": post.id, "slug": post.slug, "status": post.status}
@@ -142,10 +166,8 @@ def update_blog_post_status(
     db: DbSession,
     user=Depends(current_user),
 ):
-    require_admin(user)
-    post = db.scalar(select(BlogPost).where(BlogPost.id == post_id))
-    if post is None:
-        raise HTTPException(status_code=404, detail="Post not found.")
+    writer = require_writer(user)
+    post = _load_manageable_post(db, writer, post_id)
 
     if post.status != payload.status:
         post.status = payload.status
@@ -157,12 +179,83 @@ def update_blog_post_status(
     db.add(post)
     db.commit()
     db.refresh(post)
-    return {"id": post.id, "status": post.status, **_serialize_post(post)}
+    return {**_serialize_post(post), "id": post.id, "status": post.status}
+
+
+def _load_manageable_post(db, writer, post_id: int) -> BlogPost:
+    """Fetch a post and enforce ownership: admins manage any post, maintainers
+    only their own."""
+    post = db.scalar(select(BlogPost).options(selectinload(BlogPost.series)).where(BlogPost.id == post_id))
+    if post is None:
+        raise HTTPException(status_code=404, detail="Post not found.")
+    if writer.role != "admin" and post.author_id != writer.id:
+        raise HTTPException(status_code=403, detail="You can only manage your own posts.")
+    return post
+
+
+@router.get("/blog/posts/{post_id}")
+def get_admin_blog_post(post_id: int, db: DbSession, user=Depends(current_user)):
+    writer = require_writer(user)
+    post = _load_manageable_post(db, writer, post_id)
+    return {**_serialize_post(post), "id": post.id, "status": post.status, "editable": True}
+
+
+@router.put("/blog/posts/{post_id}")
+def edit_blog_post(
+    post_id: int,
+    payload: AdminBlogPostEditIn,
+    db: DbSession,
+    user=Depends(current_user),
+):
+    writer = require_writer(user)
+    post = _load_manageable_post(db, writer, post_id)
+
+    data = payload.model_dump(exclude_unset=True)
+
+    if "series_slug" in data:
+        series_slug = data.pop("series_slug")
+        if series_slug:
+            series = db.scalar(select(Series).where(Series.slug == series_slug))
+            if series is None:
+                raise HTTPException(status_code=404, detail="Series not found.")
+            post.series_id = series.id
+        else:
+            post.series_id = None
+
+    if "title" in data:
+        post.title = data["title"]
+    if "summary" in data:
+        post.summary = data["summary"]
+    if "content" in data:
+        post.content = data["content"]
+        post.read_time = estimate_read_time(data["content"])
+    if "tags" in data:
+        post.tags = data["tags"]
+    if "status" in data and post.status != data["status"]:
+        post.status = data["status"]
+        if data["status"] == "published" and post.published_at is None:
+            post.published_at = datetime.now(UTC)
+        elif data["status"] == "draft":
+            post.published_at = None
+
+    db.add(post)
+    db.commit()
+    db.refresh(post)
+    return {**_serialize_post(post), "id": post.id, "status": post.status}
+
+
+@router.delete("/blog/posts/{post_id}")
+def delete_blog_post(post_id: int, db: DbSession, user=Depends(current_user)):
+    writer = require_writer(user)
+    post = _load_manageable_post(db, writer, post_id)
+    db.delete(post)
+    db.commit()
+    return {"ok": True, "id": post_id}
 
 
 @router.post("/series", status_code=201)
 def create_series(payload: AdminSeriesCreateIn, db: DbSession, user=Depends(current_user)):
-    require_admin(user)
+    require_writer(user)
     slug = payload.slug or slugify(payload.title)
     existing = db.scalar(select(Series).where(Series.slug == slug))
     if existing is not None:

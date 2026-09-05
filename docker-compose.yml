@@ -2,6 +2,9 @@ services:
   web:
     build:
       context: ./frontend
+      # 호스트 VPN(utun)이 Docker 기본 bridge egress를 가로채므로
+      # 빌드 시에만 host 네트워크로 우회해 npm 레지스트리에 접근한다.
+      network: host
     ports:
       - "3000:3000"
     environment:
@@ -21,6 +24,9 @@ services:
   api:
     build:
       context: ./backend
+      # 호스트 VPN(utun)이 Docker 기본 bridge egress를 가로채므로
+      # 빌드 시에만 host 네트워크로 우회해 PyPI에 접근한다.
+      network: host
     ports:
       - "8000:8000"
     environment:

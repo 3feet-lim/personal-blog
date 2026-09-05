@@ -3,7 +3,7 @@ import { apiUrl } from "./config";
 export type SessionUser = {
   email: string;
   name: string;
-  role: "anonymous" | "member" | "family" | "admin";
+  role: "anonymous" | "viewer" | "maintainer" | "admin";
   approved: boolean;
   familyAccess: boolean;
 };
@@ -33,6 +33,8 @@ export type BlogPost = {
   // Present only on admin-only responses (list/patch), absent on the public API.
   id?: number;
   status?: string;
+  // Whether the current user may edit/delete this post (admin: all, maintainer: own).
+  editable?: boolean;
 };
 
 export type BlogPostList = {
@@ -187,14 +189,31 @@ const MAX_LIST_LIMIT = 100;
 export async function getAllBlogPosts(maxItems = 1000): Promise<BlogPost[]> {
   const items: BlogPost[] = [];
   let offset = 0;
+  // Pin the target from the FIRST page. The backend recomputes `total` via a
+  // live COUNT on every call, so reading it each iteration would let a post
+  // published/unpublished mid-pagination shift the stop condition and silently
+  // drop a page.
+  let total: number | null = null;
 
   while (items.length < maxItems) {
     const page = await getBlogPosts(MAX_LIST_LIMIT, offset);
+    if (total === null) {
+      total = page.total;
+    }
     items.push(...page.items);
     offset += page.items.length;
-    if (page.items.length === 0 || items.length >= page.total) {
+    if (page.items.length === 0 || items.length >= total) {
       break;
     }
+  }
+
+  if (total !== null && items.length < total) {
+    // Never truncate silently: surface that older posts were omitted so this
+    // is diagnosable instead of looking like complete coverage.
+    // eslint-disable-next-line no-console
+    console.warn(
+      `getAllBlogPosts: stopped at ${items.length} of ${total} posts (maxItems=${maxItems}); older posts are omitted.`
+    );
   }
 
   return items;
@@ -258,6 +277,32 @@ export async function getAdminBlogPosts(demoEmail?: string) {
 
 export async function updateBlogPostStatus(postId: number, status: string, demoEmail?: string) {
   return requestJson<BlogPost>(`/api/admin/blog/posts/${postId}`, "PATCH", { status }, demoEmail);
+}
+
+export async function getAdminBlogPost(postId: number, demoEmail?: string) {
+  return request<BlogPost>(`/api/admin/blog/posts/${postId}`, { demoEmail });
+}
+
+export async function updateBlogPost(
+  postId: number,
+  payload: {
+    title?: string;
+    summary?: string;
+    content?: string;
+    status?: string;
+    tags?: string[];
+    series_slug?: string | null;
+  },
+  demoEmail?: string
+) {
+  return requestJson<BlogPost>(`/api/admin/blog/posts/${postId}`, "PUT", payload, demoEmail);
+}
+
+export async function deleteBlogPost(postId: number, demoEmail?: string) {
+  return request<{ ok: boolean; id: number }>(`/api/admin/blog/posts/${postId}`, {
+    method: "DELETE",
+    demoEmail
+  });
 }
 
 export async function createAdminSeries(

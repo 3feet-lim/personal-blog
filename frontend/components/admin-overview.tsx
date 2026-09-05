@@ -13,6 +13,12 @@ export function AdminOverview({
   posts: BlogPost[];
   albums: Album[];
 }) {
+  // `posts` now includes drafts (admin list), so show the published subset
+  // explicitly rather than a bare total that reads as "publicly live".
+  const publishedCount = posts.filter(
+    (post) => (post.status ?? (post.published_at ? "published" : "draft")) === "published"
+  ).length;
+
   return (
     <section className="stack">
       <div>
@@ -25,16 +31,16 @@ export function AdminOverview({
         <div className="meta-row">
           <span className="badge">{user.name}</span>
           <span className="badge">role: {user.role}</span>
-          <span className="badge">posts: {posts.length}</span>
+          <span className="badge">posts: {posts.length} (발행 {publishedCount})</span>
           <span className="badge">albums: {albums.length}</span>
         </div>
       </div>
 
       <div className="list">
-        <Link className="post-list-item" href="/admin/blog">
+        <Link className="post-list-item" href="/blog">
           <span className="post-date">Content</span>
-          <h3>블로그 관리</h3>
-          <p>새 글 작성과 현재 게시물 확인</p>
+          <h3>블로그</h3>
+          <p>글 작성·수정·삭제는 블로그 화면에서</p>
         </Link>
         <Link className="post-list-item" href="/admin/albums">
           <span className="post-date">Storage</span>
