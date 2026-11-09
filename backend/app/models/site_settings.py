@@ -19,9 +19,9 @@ class SiteSettings(Base):
     __tablename__ = "site_settings"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    site_name: Mapped[str] = mapped_column(String(255), default="Jaeyoung's Notes")
-    site_subtitle: Mapped[str] = mapped_column(String(255), default="Engineering journal, since 2021")
-    footer_text: Mapped[str] = mapped_column(String(255), default="© 2026 Jaeyoung Kim")
+    site_name: Mapped[str] = mapped_column(String(255), default="BigJade's Notes")
+    site_subtitle: Mapped[str] = mapped_column(String(255), default="Engineering journal, since 2026")
+    footer_text: Mapped[str] = mapped_column(String(255), default="© 2026 BigJade")
     github_url: Mapped[str] = mapped_column(String(500), default="https://github.com")
     mastodon_url: Mapped[str] = mapped_column(String(500), default="https://mastodon.social")
     updated_at: Mapped[datetime] = mapped_column(
