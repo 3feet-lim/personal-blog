@@ -70,8 +70,11 @@ export default function HomePage() {
           <p className="empty-state">표시할 게시물이 없습니다.</p>
         ) : (
           <>
-            <article>
-              <div className="eyebrow">Latest / {formatDate(latest.published_at)}</div>
+            <article className="latest-post">
+              <div className="latest-meta">
+                <span className="latest-badge">Latest</span>
+                <span className="latest-date">{formatDate(latest.published_at)}</span>
+              </div>
               <Link href={`/blog/post?slug=${encodeURIComponent(latest.slug)}`}>
                 <h1 className="latest-title">{latest.title}</h1>
               </Link>

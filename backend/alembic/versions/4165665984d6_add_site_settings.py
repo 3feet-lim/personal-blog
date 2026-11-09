@@ -48,9 +48,9 @@ def upgrade() -> None:
         [
             {
                 'id': 1,
-                'site_name': "Jaeyoung's Notes",
-                'site_subtitle': 'Engineering journal, since 2021',
-                'footer_text': '© 2026 Jaeyoung Kim',
+                'site_name': "BigJade's Notes",
+                'site_subtitle': 'Engineering journal, since 2026',
+                'footer_text': '© 2026 BigJade',
                 'github_url': 'https://github.com',
                 'mastodon_url': 'https://mastodon.social',
             }

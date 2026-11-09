@@ -1,7 +1,8 @@
 import "./globals.css";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Gothic_A1, Hahmlet, JetBrains_Mono } from "next/font/google";
+import { JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 
 import { appName } from "../lib/config";
 import { SessionProvider } from "../lib/auth";
@@ -12,17 +13,10 @@ import { RssLink } from "../components/rss-link";
 import { PostCounter } from "../components/post-counter";
 import { SiteBrand } from "../components/site-brand";
 
-const hahmlet = Hahmlet({
-  subsets: ["latin"],
-  weight: ["300", "400", "500"],
-  variable: "--font-hahmlet",
-  display: "swap"
-});
-
-const gothicA1 = Gothic_A1({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
-  variable: "--font-gothic-a1",
+const pretendard = localFont({
+  src: "./fonts/PretendardVariable.woff2",
+  weight: "45 920",
+  variable: "--font-pretendard",
   display: "swap"
 });
 
@@ -40,7 +34,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko" className={`${hahmlet.variable} ${gothicA1.variable} ${jetbrainsMono.variable}`}>
+    <html lang="ko" className={`${pretendard.variable} ${jetbrainsMono.variable}`}>
       <body>
         <SessionProvider>
           <div className="shell page">
