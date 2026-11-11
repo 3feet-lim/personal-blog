@@ -3,13 +3,14 @@ from datetime import datetime
 from sqlalchemy import DateTime, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.db.columns import identity_pk
 from app.db.session import Base
 
 
 class Asset(Base):
     __tablename__ = "assets"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = identity_pk()
     object_key: Mapped[str] = mapped_column(String(500), unique=True)
     mime_type: Mapped[str] = mapped_column(String(128))
     size_bytes: Mapped[int] = mapped_column(Integer, default=0)

@@ -2,17 +2,18 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.db.columns import identity_pk
 from app.db.session import Base
 
 
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    id: Mapped[int] = identity_pk()
+    email: Mapped[str] = mapped_column(String(255), unique=True)
     display_name: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(32), default="viewer")
     approved: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -26,8 +27,8 @@ class AuthIdentity(Base):
     __tablename__ = "auth_identities"
     __table_args__ = (UniqueConstraint("provider", "provider_user_id", name="uq_auth_identity_provider_subject"),)
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    id: Mapped[int] = identity_pk()
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id"), index=True)
     provider: Mapped[str] = mapped_column(String(64))
     provider_user_id: Mapped[str] = mapped_column(String(255))
     provider_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
