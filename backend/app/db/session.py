@@ -1,18 +1,19 @@
 from collections.abc import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import MetaData
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.core.config import get_settings
+from app.db.engine import build_engine
 
 settings = get_settings()
 
 
 class Base(DeclarativeBase):
-    pass
+    metadata = MetaData(schema=settings.db_schema)
 
 
-engine = create_engine(settings.database_url, future=True)
+engine = build_engine(settings)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
 
