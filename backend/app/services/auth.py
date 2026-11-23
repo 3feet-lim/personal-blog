@@ -95,6 +95,13 @@ async def exchange_google_code(settings: Settings, code: str) -> ProviderProfile
         userinfo_response.raise_for_status()
         userinfo = userinfo_response.json()
 
+    # Only trust an email Google has verified; it decides which account is used.
+    if userinfo.get("email_verified") is not True:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Google account email is not verified.",
+        )
+
     return ProviderProfile(
         provider="google",
         subject=userinfo["sub"],
@@ -114,6 +121,17 @@ def resolve_provider_user(db: Session, profile: ProviderProfile) -> User:
         return identity.user
 
     user = db.scalar(select(User).where(User.email == profile.email))
+    if user is None and profile.email.lower() in get_settings().bootstrap_admin_email_list:
+        user = User(
+            email=profile.email,
+            display_name=profile.display_name,
+            role="admin",
+            approved=True,
+            family_access=True,
+        )
+        db.add(user)
+        db.flush()
+
     if user is None or not user.approved:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

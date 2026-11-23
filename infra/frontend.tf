@@ -23,7 +23,35 @@ module "cloudfront" {
       domain_name               = module.frontend_bucket.s3_bucket_bucket_regional_domain_name
       origin_access_control_key = "s3"
     }
+
+    api = {
+      domain_name = module.alb.dns_name
+
+      custom_origin_config = {
+        http_port              = 80
+        https_port             = 443
+        origin_protocol_policy = "http-only"
+      }
+
+      # The ALB forwards only requests that carry this secret.
+      custom_header = {
+        (local.origin_verify_header) = random_password.origin_verify.result
+      }
+    }
   }
+
+  ordered_cache_behavior = [{
+    path_pattern           = "/api/*"
+    target_origin_id       = "api"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+    cached_methods         = ["GET", "HEAD"]
+
+    # API responses are per-user, so never cache them and pass cookies,
+    # query strings and headers through to the ALB.
+    cache_policy_name          = "Managed-CachingDisabled"
+    origin_request_policy_name = "Managed-AllViewerExceptHostHeader"
+  }]
 
   # Static export uses trailingSlash, so "/blog/post/" must be served from
   # "/blog/post/index.html" in the bucket.
