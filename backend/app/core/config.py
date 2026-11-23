@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: str = ""
     google_redirect_uri: str = "http://localhost:8000/api/auth/callback/google"
+    # Comma-separated emails that become admins on their first Google login,
+    # so a freshly provisioned database needs no manual user insert.
+    bootstrap_admin_emails: str = ""
 
     s3_endpoint_url: str = ""
     s3_bucket: str
@@ -51,6 +54,10 @@ class Settings(BaseSettings):
     @property
     def use_dsql(self) -> bool:
         return bool(self.dsql_endpoint)
+
+    @property
+    def bootstrap_admin_email_list(self) -> set[str]:
+        return {email.strip().lower() for email in self.bootstrap_admin_emails.split(",") if email.strip()}
 
     @property
     def cors_origin_list(self) -> list[str]:
