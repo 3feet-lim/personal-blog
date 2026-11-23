@@ -1,0 +1,67 @@
+name: CI
+
+# Validate every pull request into main before it can be merged. Nothing is
+# pushed or deployed here, so no AWS credentials are used.
+#
+# There is no path filter on purpose: if these jobs are required status checks
+# in branch protection, a skipped job would leave the PR waiting forever.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    # Same architecture as the Fargate tasks and the deploy workflow.
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build image
+        run: docker build -t api:ci backend
+
+      - name: Check app imports and migration history
+        # Dummy settings only; nothing connects to a database or S3.
+        run: |
+          docker run --rm --network none \
+            -e DATABASE_URL=postgresql+psycopg2://ci:ci@localhost:5432/ci \
+            -e S3_BUCKET=ci \
+            api:ci sh -c '
+              set -e
+              python -c "import app.main"
+              heads=$(python -m alembic heads | wc -l)
+              if [ "$heads" -ne 1 ]; then
+                echo "Expected exactly one Alembic head, found $heads"
+                python -m alembic heads
+                exit 1
+              fi
+            '
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      # next build also type-checks the project.
+      - name: Build static site
+        env:
+          NEXT_PUBLIC_API_URL: https://ci.invalid
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: npm run build

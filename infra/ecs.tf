@@ -60,6 +60,10 @@ module "ecs_api" {
   desired_count      = 1
   enable_autoscaling = false
 
+  # GitHub Actions registers new task definition revisions on every deploy,
+  # so Terraform must not roll the service back to its own revision.
+  ignore_task_definition_changes = true
+
   subnet_ids            = module.vpc.public_subnets
   assign_public_ip      = true
   create_security_group = false
@@ -139,4 +143,11 @@ module "ecs_api" {
       ]
     }
   }
+}
+
+# ignore_task_definition_changes switches the module to a differently named
+# service resource; move it in state instead of recreating the service.
+moved {
+  from = module.ecs_api.aws_ecs_service.this[0]
+  to   = module.ecs_api.aws_ecs_service.ignore_task_definition[0]
 }

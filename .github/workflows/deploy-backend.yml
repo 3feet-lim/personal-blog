@@ -1,0 +1,66 @@
+name: Deploy backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-backend.yml"
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-northeast-2
+  AWS_ROLE_ARN: arn:aws:iam::637423211487:role/bigjade-blog-github-actions
+  ECR_REPOSITORY: bigjade-blog-api
+  ECS_CLUSTER: bigjade-blog
+  ECS_SERVICE: bigjade-blog-api
+  TASK_DEFINITION_FAMILY: bigjade-blog-api
+  CONTAINER_NAME: api
+
+jobs:
+  deploy:
+    # Fargate tasks run on ARM64, so build natively on an ARM64 runner.
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - id: image
+        name: Build and push image
+        env:
+          REPOSITORY_URI: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t "$REPOSITORY_URI:$IMAGE_TAG" backend
+          docker push "$REPOSITORY_URI:$IMAGE_TAG"
+          # Deploy by digest so the running image matches what Terraform
+          # resolves for the latest ECR image.
+          echo "uri=$(docker inspect --format '{{index .RepoDigests 0}}' "$REPOSITORY_URI:$IMAGE_TAG")" >> "$GITHUB_OUTPUT"
+
+      - id: task-definition
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition-family: ${{ env.TASK_DEFINITION_FAMILY }}
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.image.outputs.uri }}
+
+      - uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-definition.outputs.task-definition }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          service: ${{ env.ECS_SERVICE }}
+          wait-for-service-stability: true
